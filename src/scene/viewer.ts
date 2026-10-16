@@ -4,8 +4,8 @@ const BACKGROUND = '#eef0f3';
 /** 40 m × 40 m with 100 mm cells, centred on the room origin. */
 const GRID_SIZE_M = 40;
 const GRID_CELL_M = 0.1;
-/** Just below the floor plane so it never z-fights with it. */
-const GRID_Y_M = -0.002;
+/** 1 mm above the floor: visible inside the room as a snapping aid. */
+const GRID_Y_M = 0.001;
 
 /**
  * Owns the renderer, scene, lights and render loop. The canvas follows the container size;
@@ -19,6 +19,7 @@ export class Viewer {
   private readonly grid: THREE.GridHelper;
   private readonly resizeObserver: ResizeObserver;
   private readonly frameCallbacks: Array<() => void> = [];
+  private readonly resizeCallbacks: Array<(width: number, height: number) => void> = [];
   private camera: THREE.Camera | null = null;
 
   constructor(container: HTMLElement) {
@@ -40,10 +41,15 @@ export class Viewer {
     const divisions = Math.round(GRID_SIZE_M / GRID_CELL_M);
     this.grid = new THREE.GridHelper(GRID_SIZE_M, divisions, 0xbfc4cc, 0xd9dce1);
     this.grid.position.y = GRID_Y_M;
-    // Drawn first and without depth writes: the floor always covers it, regardless of
-    // depth-buffer precision at a distance (a few mm offset alone still z-fights).
-    this.grid.renderOrder = -1;
+    // Semi-transparent, so it is drawn after every opaque object: the 1 mm lift wins the depth
+    // test against the floor, while walls and furniture (already in the depth buffer) hide it.
+    // renderOrder -1 puts it first among transparent objects, i.e. before the window glass.
+    this.grid.material.transparent = true;
+    this.grid.material.opacity = 0.35;
     this.grid.material.depthWrite = false;
+    this.grid.renderOrder = -1;
+    // A drawing aid, never a pointer target.
+    this.grid.raycast = () => {};
     this.scene.add(this.grid);
 
     // Size the drawing buffer only; CSS keeps the canvas at 100% of the container,
@@ -68,6 +74,11 @@ export class Viewer {
     this.frameCallbacks.push(fn);
   }
 
+  /** Called with the container size (CSS px) whenever it changes, after the renderer is resized. */
+  onResize(fn: (width: number, height: number) => void): void {
+    this.resizeCallbacks.push(fn);
+  }
+
   setGridVisible(visible: boolean): void {
     this.grid.visible = visible;
   }
@@ -76,6 +87,7 @@ export class Viewer {
     this.renderer.setAnimationLoop(null);
     this.resizeObserver.disconnect();
     this.frameCallbacks.length = 0;
+    this.resizeCallbacks.length = 0;
     this.grid.geometry.dispose();
     this.grid.material.dispose();
     this.renderer.dispose();
@@ -87,6 +99,7 @@ export class Viewer {
     if (w === 0 || h === 0) return;
     this.renderer.setSize(w, h, false);
     this.updateCameraAspect();
+    for (const fn of this.resizeCallbacks) fn(w, h);
   }
 
   /** Perspective aspect only; an orthographic frustum is owned by whoever sets it up. */

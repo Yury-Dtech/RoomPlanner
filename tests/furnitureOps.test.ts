@@ -67,6 +67,12 @@ describe('moveItem', () => {
   test('unknown id returns the same project', () => {
     expect(moveItem(base, 'nope', { x: 0, z: 0 }, 50)).toBe(base);
   });
+
+  test('a move that snaps back to the current position returns the same project', () => {
+    // desk-1 is at (1950, 4700): sub-step pointer jitter while dragging changes nothing.
+    expect(moveItem(base, 'desk-1', { x: 1962, z: 4689 }, 50)).toBe(base);
+    expect(moveItem(base, 'desk-1', { x: 1950, z: 4700 }, 0)).toBe(base);
+  });
 });
 
 describe('rotateItem', () => {

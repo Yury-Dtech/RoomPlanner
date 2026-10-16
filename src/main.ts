@@ -1,13 +1,14 @@
 import './style.css';
-import * as THREE from 'three';
 import sampleProject from './data/project.json';
-import type { Project, Room } from './data/schema';
+import type { Project } from './data/schema';
 import { findIssues } from './scene/collisions';
+import { ViewControls } from './scene/controls';
+import { DragController } from './scene/drag';
 import { FurnitureLayer } from './scene/furniture';
 import { buildRoom, disposeObject } from './scene/room';
 import { Viewer } from './scene/viewer';
+import { DEFAULT_GRID_STEP, moveItem, removeItem, rotateItem } from './state/furnitureOps';
 import { ProjectStore } from './state/store';
-import { mmToM, planToWorld } from './utils/units';
 import { getSafeStorage, loadInitialProject } from './utils/storage';
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -23,32 +24,39 @@ const viewport = document.createElement('div');
 viewport.className = 'viewport';
 app.appendChild(viewport);
 const viewer = new Viewer(viewport);
+const canvas = viewer.renderer.domElement;
 
-// Temporary camera until ViewControls (Task 9): above the south-east, looking at the room centre.
-function roomCenter(room: Room): THREE.Vector3 {
-  const c = planToWorld({ x: room.width / 2, z: room.length / 2 });
-  return new THREE.Vector3(c.x, 0, c.z);
-}
-const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 200);
-const target = roomCenter(project.room);
-const reach = mmToM(Math.max(project.room.width, project.room.length));
-camera.position.set(target.x + reach * 0.6, mmToM(project.room.height) + reach * 1.1, target.z + reach * 1.1);
-camera.lookAt(target);
-viewer.setCamera(camera);
+const controls = new ViewControls(viewer, canvas);
+controls.fitToRoom(project.room);
 
 const showCeiling = false;
+// Temporary: Task 10 moves it into the UI state (toolbar input).
+let gridStep = DEFAULT_GRID_STEP;
 let roomGroup = buildRoom(project.room, project.openings, { showCeiling });
 viewer.scene.add(roomGroup);
 
 const furniture = new FurnitureLayer(viewer.scene);
-// Selection is changed by clicking in the scene (Task 9); re-sync after every change.
 let selectedId: string | null = null;
 function syncFurniture(p: Project): void {
   furniture.sync(p.furniture, findIssues(p), selectedId);
 }
 syncFurniture(project);
 
+function select(id: string | null): void {
+  if (id === selectedId) return;
+  selectedId = id;
+  syncFurniture(store.get());
+}
+
+new DragController(canvas, controls, furniture, {
+  onSelect: select,
+  // moveItem snaps and returns the same project when nothing changed, so set() is a no-op then.
+  onMove: (id, pos) => store.set(moveItem(store.get(), id, pos, gridStep)),
+});
+
 store.subscribe((p, prev) => {
+  // The selected item may be gone (deleted, project imported).
+  if (selectedId !== null && !p.furniture.some((f) => f.id === selectedId)) selectedId = null;
   // Issues depend on the room and openings too, so furniture re-syncs on every change.
   syncFurniture(p);
   if (p.room === prev.room && p.openings === prev.openings) return;
@@ -56,4 +64,27 @@ store.subscribe((p, prev) => {
   disposeObject(roomGroup);
   roomGroup = buildRoom(p.room, p.openings, { showCeiling });
   viewer.scene.add(roomGroup);
+  if (p.room !== prev.room) controls.fitToRoom(p.room);
+});
+
+function isTextInput(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || target.closest('input, select, textarea') !== null);
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isTextInput(e.target)) return;
+  if (e.key === 'Escape') {
+    select(null);
+    return;
+  }
+  if (selectedId === null) return;
+  // `code`, not `key`: R must work on any keyboard layout (e.g. «К» on the Russian one).
+  if (e.code === 'KeyR') {
+    e.preventDefault();
+    store.set(rotateItem(store.get(), selectedId, e.shiftKey ? -90 : 90));
+  } else if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    // The subscriber clears the selection once the item is gone.
+    store.set(removeItem(store.get(), selectedId));
+  }
 });

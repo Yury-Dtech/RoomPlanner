@@ -26,13 +26,16 @@ function updateItem(p: Project, id: string, update: (item: FurnitureItem) => Fur
   return { ...p, furniture };
 }
 
+/** Snaps `pos` to the grid; returns `p` itself when the snapped position is unchanged. */
 export function moveItem(p: Project, id: string, pos: Vec2, step: number): Project {
   // NaN/Infinity would be serialized as null and corrupt the saved project.
   if (!Number.isFinite(pos.x) || !Number.isFinite(pos.z)) return p;
-  return updateItem(p, id, (item) => ({
-    ...item,
-    position: { x: snap(pos.x, step), z: snap(pos.z, step) },
-  }));
+  const x = snap(pos.x, step);
+  const z = snap(pos.z, step);
+  // Dragging calls this on every pointer move; sub-step jitter must not notify the store.
+  const current = p.furniture.find((f) => f.id === id)?.position;
+  if (current && current.x === x && current.z === z) return p;
+  return updateItem(p, id, (item) => ({ ...item, position: { x, z } }));
 }
 
 export function rotateItem(p: Project, id: string, deltaDeg: number): Project {
