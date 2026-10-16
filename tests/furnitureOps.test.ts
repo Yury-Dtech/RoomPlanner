@@ -57,6 +57,13 @@ describe('moveItem', () => {
     expect(find(next, 'desk-1').position).toEqual({ x: 1012, z: 2988 });
   });
 
+  test('non-finite coordinates return the same project', () => {
+    for (const bad of [NaN, Infinity, -Infinity]) {
+      expect(moveItem(base, 'desk-1', { x: bad, z: 100 }, 50)).toBe(base);
+      expect(moveItem(base, 'desk-1', { x: 100, z: bad }, 50)).toBe(base);
+    }
+  });
+
   test('unknown id returns the same project', () => {
     expect(moveItem(base, 'nope', { x: 0, z: 0 }, 50)).toBe(base);
   });
@@ -75,6 +82,10 @@ describe('rotateItem', () => {
     expect(find(base, 'desk-1').rotationY).toBe(0);
     expect(next.room).toBe(base.room);
     expect(find(next, 'bed-1')).toBe(find(base, 'bed-1'));
+  });
+
+  test('non-finite delta returns the same project', () => {
+    for (const bad of [NaN, Infinity, -Infinity]) expect(rotateItem(base, 'desk-1', bad)).toBe(base);
   });
 
   test('unknown id returns the same project', () => {
@@ -106,6 +117,12 @@ describe('resizeItem', () => {
     expect(find(base, 'desk-1').size).toEqual({ w: 1200, h: 750, d: 600 });
     expect(r.project.room).toBe(base.room);
     expect(find(r.project, 'bed-1')).toBe(find(base, 'bed-1'));
+  });
+
+  test('explicit undefined keys are ignored and never overwrite the size', () => {
+    const r = resizeItem(base, 'desk-1', { w: undefined, h: 800 });
+    if (!r.ok) throw new Error('expected ok');
+    expect(find(r.project, 'desk-1').size).toEqual({ w: 1200, h: 800, d: 600 });
   });
 
   test('invalid dimension anywhere rejects the whole change', () => {

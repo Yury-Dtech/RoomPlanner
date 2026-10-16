@@ -27,6 +27,8 @@ function updateItem(p: Project, id: string, update: (item: FurnitureItem) => Fur
 }
 
 export function moveItem(p: Project, id: string, pos: Vec2, step: number): Project {
+  // NaN/Infinity would be serialized as null and corrupt the saved project.
+  if (!Number.isFinite(pos.x) || !Number.isFinite(pos.z)) return p;
   return updateItem(p, id, (item) => ({
     ...item,
     position: { x: snap(pos.x, step), z: snap(pos.z, step) },
@@ -34,6 +36,7 @@ export function moveItem(p: Project, id: string, pos: Vec2, step: number): Proje
 }
 
 export function rotateItem(p: Project, id: string, deltaDeg: number): Project {
+  if (!Number.isFinite(deltaDeg)) return p;
   return updateItem(p, id, (item) => ({
     ...item,
     rotationY: (((item.rotationY + deltaDeg) % 360) + 360) % 360,
@@ -47,15 +50,18 @@ function sizeError(v: number): string | null {
 }
 
 export function resizeItem(p: Project, id: string, size: Partial<Size3>): OpResult {
+  // Only keys with a defined value are validated and merged (an explicit `undefined` is ignored).
+  const changes: Partial<Size3> = {};
   for (const key of ['w', 'h', 'd'] as const) {
     const v = size[key];
     if (v === undefined) continue;
     const error = sizeError(v);
     if (error) return { ok: false, error };
+    changes[key] = v;
   }
   return {
     ok: true,
-    project: updateItem(p, id, (item) => ({ ...item, size: { ...item.size, ...size } })),
+    project: updateItem(p, id, (item) => ({ ...item, size: { ...item.size, ...changes } })),
   };
 }
 
