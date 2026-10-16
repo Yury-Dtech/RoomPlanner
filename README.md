@@ -14,3 +14,12 @@ npm test         # юнит-тесты (vitest)
 ```
 
 Подробности и требования — в [SPEC.md](SPEC.md).
+
+## Деплой
+
+Сайт: https://yury-dtech.github.io/RoomPlanner/
+
+Деплой выполняет workflow `.github/workflows/deploy.yml` при пуше в `main`: тесты, сборка, публикация `dist/`.
+
+- В настройках репозитория: **Settings → Pages → Source: GitHub Actions**.
+- GitHub Pages для приватного репозитория доступен только на платном плане. На бесплатном плане репозиторий должен быть публичным. В этом случае публичен и `project.json` — в нём не должно быть адресов и личных данных.
