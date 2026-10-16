@@ -52,7 +52,7 @@ new DragController(canvas, controls, furniture, {
   onSelect: select,
   // moveItem snaps and returns the same project when nothing changed, so set() is a no-op then.
   onMove: (id, pos) => store.set(moveItem(store.get(), id, pos, gridStep)),
-});
+}, viewer.scene);
 
 store.subscribe((p, prev) => {
   // The selected item may be gone (deleted, project imported).

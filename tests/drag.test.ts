@@ -6,8 +6,11 @@ import {
   exceedsDragThreshold,
   floorPlanPoint,
   grabOffset,
+  nearestFurnitureId,
+  pickFurniture,
   pointerToNdc,
 } from '../src/scene/drag';
+import { FurnitureLayer } from '../src/scene/furniture';
 import { planToWorld } from '../src/utils/units';
 
 const rect = { left: 100, top: 50, width: 800, height: 600 };
@@ -72,5 +75,57 @@ describe('exceedsDragThreshold', () => {
     expect(exceedsDragThreshold(DRAG_THRESHOLD_PX, 0)).toBe(false);
     expect(exceedsDragThreshold(DRAG_THRESHOLD_PX + 1, 0)).toBe(true);
     expect(exceedsDragThreshold(-3, 4)).toBe(true); // length 5
+  });
+});
+
+describe('nearestFurnitureId', () => {
+  const furnitureMesh = new THREE.Object3D();
+  furnitureMesh.userData.furnitureId = 'desk-1';
+  const wall = new THREE.Object3D();
+
+  test('returns the id when the nearest hit is a furniture mesh', () => {
+    expect(nearestFurnitureId([{ object: furnitureMesh }, { object: wall }])).toBe('desk-1');
+  });
+
+  test('returns null when something else is in front of the furniture', () => {
+    expect(nearestFurnitureId([{ object: wall }, { object: furnitureMesh }])).toBeNull();
+  });
+
+  test('returns null for no hits', () => {
+    expect(nearestFurnitureId([])).toBeNull();
+  });
+});
+
+describe('pickFurniture', () => {
+  // Wardrobe at plan (450, 250): world x 0.45, z −0.25, spanning z 0 … −0.5, height 2.1 m.
+  function setup(withWall: boolean): { root: THREE.Scene; layer: FurnitureLayer } {
+    const root = new THREE.Scene();
+    const layer = new FurnitureLayer(root);
+    layer.sync(
+      [{ id: 'wardrobe-1', catalogId: 'wardrobe-basic', position: { x: 450, z: 250 }, rotationY: 0, size: { w: 900, h: 2100, d: 500 }, color: '#ffffff' }],
+      new Map(),
+      'wardrobe-1', // the selection outline must not block picking
+    );
+    if (withWall) {
+      // South wall: outside the room, z 0 … +0.1 (100 mm thick).
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.7, 0.1), new THREE.MeshStandardMaterial());
+      wall.position.set(2.1, 1.35, 0.05);
+      root.add(wall);
+    }
+    root.updateMatrixWorld();
+    return { root, layer };
+  }
+  // From the south, outside the room, looking north (−Z) at the wardrobe.
+  const raycasterFromSouth = (): THREE.Raycaster =>
+    new THREE.Raycaster(new THREE.Vector3(0.45, 1, 3), new THREE.Vector3(0, 0, -1));
+
+  test('picks a visible item', () => {
+    const { root } = setup(false);
+    expect(pickFurniture(raycasterFromSouth(), root)).toBe('wardrobe-1');
+  });
+
+  test('does not pick an item hidden behind a wall', () => {
+    const { root } = setup(true);
+    expect(pickFurniture(raycasterFromSouth(), root)).toBeNull();
   });
 });

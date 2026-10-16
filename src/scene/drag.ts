@@ -37,6 +37,21 @@ export function exceedsDragThreshold(dx: number, dy: number): boolean {
   return Math.hypot(dx, dy) > DRAG_THRESHOLD_PX;
 }
 
+/** Furniture id of the nearest hit, or null when the nearest hit is anything else (a wall…). */
+export function nearestFurnitureId(hits: ReadonlyArray<{ object: THREE.Object3D }>): string | null {
+  const id: unknown = hits[0]?.object.userData.furnitureId;
+  return typeof id === 'string' ? id : null;
+}
+
+/**
+ * Item under the ray, with everything else under `root` (walls, posts, window glass) as an
+ * occluder: an item hidden behind a wall cannot be grabbed through it. The grid and the
+ * selection outline ignore raycasts, so they never block.
+ */
+export function pickFurniture(raycaster: THREE.Raycaster, root: THREE.Object3D): string | null {
+  return nearestFurnitureId(raycaster.intersectObject(root, true));
+}
+
 export interface DragCallbacks {
   onSelect(id: string | null): void;
   onMove(id: string, planPos: Vec2): void;
@@ -63,14 +78,20 @@ export class DragController {
   private readonly controls: ViewControls;
   private readonly layer: FurnitureLayer;
   private readonly cb: DragCallbacks;
+  private readonly pickRoot: THREE.Object3D;
   private readonly raycaster = new THREE.Raycaster();
   private press: Press | null = null;
 
-  constructor(dom: HTMLElement, controls: ViewControls, layer: FurnitureLayer, cb: DragCallbacks) {
+  /**
+   * `pickRoot` holds the furniture and its occluders (pass the scene: the room group is
+   * rebuilt on room/opening changes, so a reference to it would go stale).
+   */
+  constructor(dom: HTMLElement, controls: ViewControls, layer: FurnitureLayer, cb: DragCallbacks, pickRoot: THREE.Object3D) {
     this.dom = dom;
     this.controls = controls;
     this.layer = layer;
     this.cb = cb;
+    this.pickRoot = pickRoot;
     // Capture phase: runs before OrbitControls' own pointerdown on the same element, so the
     // orbit is disabled before it starts tracking the pointer and never moves during a drag.
     dom.addEventListener('pointerdown', this.onPointerDown, { capture: true });
@@ -94,7 +115,7 @@ export class DragController {
     // Only the primary button selects/drags; right/middle stay with the orbit (pan, zoom).
     if (this.press || !e.isPrimary || e.button !== 0) return;
     this.aim(e);
-    const id = this.layer.pick(this.raycaster);
+    const id = pickFurniture(this.raycaster, this.pickRoot);
     const press: Press = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, moved: false, itemId: id, drag: null };
     this.press = press;
     if (id === null) return;
