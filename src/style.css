@@ -7,4 +7,17 @@ body,
 
 body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+}
+
+.viewport {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.viewport canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
