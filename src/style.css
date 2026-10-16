@@ -75,6 +75,17 @@ body {
   height: 100%;
 }
 
+/* Shown instead of the canvas when WebGL is unavailable. */
+.viewport-error {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 24px;
+  color: var(--danger);
+  text-align: center;
+  line-height: 1.5;
+}
+
 /* ---------- controls ---------- */
 
 button,

@@ -10,9 +10,10 @@ permissions:
   pages: write
   id-token: write
 
+# Queue deployments instead of cancelling one already in flight (as in GitHub's Pages template).
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:

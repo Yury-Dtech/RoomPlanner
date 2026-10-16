@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import * as THREE from 'three';
+import type { ViewControls } from '../src/scene/controls';
 import {
   DRAG_THRESHOLD_PX,
+  DragController,
   draggedPosition,
   exceedsDragThreshold,
   floorPlanPoint,
@@ -127,5 +129,77 @@ describe('pickFurniture', () => {
   test('does not pick an item hidden behind a wall', () => {
     const { root } = setup(true);
     expect(pickFurniture(raycasterFromSouth(), root)).toBeNull();
+  });
+});
+
+describe('DragController.cancel', () => {
+  /** Just enough of a canvas for the controller: events, a 100 × 100 box, pointer capture. */
+  class FakeCanvas extends EventTarget {
+    readonly captured = new Set<number>();
+    getBoundingClientRect() {
+      return { left: 0, top: 0, width: 100, height: 100 };
+    }
+    setPointerCapture(id: number) {
+      this.captured.add(id);
+    }
+    hasPointerCapture(id: number) {
+      return this.captured.has(id);
+    }
+    releasePointerCapture(id: number) {
+      this.captured.delete(id);
+    }
+  }
+
+  const pointer = (type: string, clientX: number, clientY: number): Event =>
+    Object.assign(new Event(type), { pointerId: 1, isPrimary: true, button: 0, pointerType: 'mouse', clientX, clientY });
+
+  function setup() {
+    const scene = new THREE.Scene();
+    const layer = new FurnitureLayer(scene);
+    layer.sync(
+      [{ id: 'wardrobe-1', catalogId: 'wardrobe-basic', position: { x: 450, z: 250 }, rotationY: 0, size: { w: 900, h: 2100, d: 500 }, color: '#ffffff' }],
+      new Map(),
+      null,
+    );
+    scene.updateMatrixWorld();
+    // Straight above the wardrobe: the canvas centre is on its top face.
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 100);
+    camera.position.set(0.45, 10, -0.25);
+    camera.lookAt(0.45, 0, -0.25);
+    camera.updateMatrixWorld();
+    const orbit = { enabled: true };
+    const controls = { camera, setEnabled: (on: boolean) => (orbit.enabled = on) } as unknown as ViewControls;
+    const canvas = new FakeCanvas();
+    const calls = { select: [] as Array<string | null>, move: 0 };
+    const drag = new DragController(canvas as unknown as HTMLElement, controls, layer, {
+      onSelect: (id) => calls.select.push(id),
+      onMove: () => calls.move++,
+    }, scene);
+    return { drag, canvas, orbit, calls };
+  }
+
+  test('ends a drag in progress: orbit back on, capture released, later moves ignored', () => {
+    const { drag, canvas, orbit, calls } = setup();
+    canvas.dispatchEvent(pointer('pointerdown', 50, 50));
+    canvas.dispatchEvent(pointer('pointermove', 60, 50));
+    expect(calls.select).toEqual(['wardrobe-1']);
+    expect(calls.move).toBe(1);
+    expect(orbit.enabled).toBe(false);
+    expect(canvas.hasPointerCapture(1)).toBe(true);
+
+    expect(drag.cancel()).toBe(true);
+    expect(orbit.enabled).toBe(true);
+    expect(canvas.hasPointerCapture(1)).toBe(false);
+
+    canvas.dispatchEvent(pointer('pointermove', 70, 50));
+    canvas.dispatchEvent(pointer('pointerup', 70, 50));
+    expect(calls.move).toBe(1);
+    expect(calls.select).toEqual(['wardrobe-1']);
+  });
+
+  test('does nothing without a drag in progress', () => {
+    const { drag, orbit } = setup();
+    expect(drag.cancel()).toBe(false);
+    expect(orbit.enabled).toBe(true);
   });
 });

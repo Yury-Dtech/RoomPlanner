@@ -102,6 +102,16 @@ export class DragController {
     dom.addEventListener('lostpointercapture', this.onPointerCancel);
   }
 
+  /**
+   * Ends an item drag in progress (e.g. on Escape): the item stays where it was last moved,
+   * the orbit is back on and the pointer released. Returns whether a drag was in progress.
+   */
+  cancel(): boolean {
+    if (!this.press?.drag) return false;
+    this.endPress();
+    return true;
+  }
+
   dispose(): void {
     this.endPress();
     this.dom.removeEventListener('pointerdown', this.onPointerDown, { capture: true });

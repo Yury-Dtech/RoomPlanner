@@ -1,4 +1,5 @@
 import './style.css';
+import * as THREE from 'three';
 import catalogData from './data/catalog.json';
 import sampleProject from './data/project.json';
 import type { Project } from './data/schema';
@@ -26,6 +27,9 @@ import { createAutosave } from './utils/autosave';
 import { downloadProject, getSafeStorage, loadInitialProject, parseProjectFile, saveProject } from './utils/storage';
 
 const AUTOSAVE_DELAY_MS = 300;
+const NO_WEBGL =
+  'Не удалось запустить 3D: браузер не поддерживает WebGL или он отключён. ' +
+  'Откройте планировщик в другом браузере или включите аппаратное ускорение.';
 /** Project files are a few KB; anything this big is not one and would only freeze the tab. */
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 const IMPORT_FAILED = 'Файл не загружен';
@@ -51,24 +55,40 @@ const ui: UiState = { selectedId: null, gridStep: DEFAULT_GRID_STEP, showCeiling
 
 // ---------- scene ----------
 
-const viewer = new Viewer(requireElement('viewport'));
-const canvas = viewer.renderer.domElement;
-const controls = new ViewControls(viewer, canvas);
-controls.setMode(ui.viewMode);
-controls.fitToRoom(project.room);
+/** The 3D view, or null when WebGL is unavailable: the message replaces the canvas. */
+function createViewer(container: HTMLElement): Viewer | null {
+  try {
+    return new Viewer(container);
+  } catch (e) {
+    console.error(e);
+    const message = document.createElement('div');
+    message.className = 'viewport-error';
+    message.setAttribute('role', 'alert');
+    message.textContent = NO_WEBGL;
+    container.replaceChildren(message);
+    return null;
+  }
+}
+
+const viewer = createViewer(requireElement('viewport'));
+// Without WebGL nothing is drawn, but the project can still be edited, imported and exported.
+const scene = viewer?.scene ?? new THREE.Scene();
+const controls = viewer ? new ViewControls(viewer, viewer.renderer.domElement) : null;
+controls?.setMode(ui.viewMode);
+controls?.fitToRoom(project.room);
 
 let roomGroup = buildRoom(project.room, project.openings, { showCeiling: ui.showCeiling });
-viewer.scene.add(roomGroup);
+scene.add(roomGroup);
 
 function rebuildRoom(): void {
   const p = store.get();
-  viewer.scene.remove(roomGroup);
+  scene.remove(roomGroup);
   disposeObject(roomGroup);
   roomGroup = buildRoom(p.room, p.openings, { showCeiling: ui.showCeiling });
-  viewer.scene.add(roomGroup);
+  scene.add(roomGroup);
 }
 
-const furniture = new FurnitureLayer(viewer.scene);
+const furniture = new FurnitureLayer(scene);
 
 // ---------- panels ----------
 
@@ -123,7 +143,7 @@ function select(id: string | null): void {
 function replaceProject(p: Project): void {
   select(null);
   store.set(p);
-  controls.fitToRoom(p.room);
+  controls?.fitToRoom(p.room);
 }
 
 async function importFile(file: File): Promise<void> {
@@ -153,7 +173,7 @@ mountToolbar(requireElement('toolbar'), {
   ui,
   onViewMode: (m) => {
     ui.viewMode = m;
-    controls.setMode(m);
+    controls?.setMode(m);
   },
   onCeiling: (on) => {
     ui.showCeiling = on;
@@ -162,7 +182,7 @@ mountToolbar(requireElement('toolbar'), {
   onGridStep: (mm) => {
     ui.gridStep = mm;
     // The grid is a snapping aid: without snapping it only clutters the floor.
-    viewer.setGridVisible(mm > 0);
+    viewer?.setGridVisible(mm > 0);
   },
   onAdd: (catalogId) => {
     const entry = catalog.find((c) => c.id === catalogId);
@@ -185,11 +205,13 @@ refresh();
 
 // ---------- interaction ----------
 
-new DragController(canvas, controls, furniture, {
-  onSelect: select,
-  // moveItem snaps and returns the same project when nothing changed, so set() is a no-op then.
-  onMove: (id, pos) => store.set(moveItem(store.get(), id, pos, ui.gridStep)),
-}, viewer.scene);
+const drag = viewer && controls
+  ? new DragController(viewer.renderer.domElement, controls, furniture, {
+      onSelect: select,
+      // moveItem snaps and returns the same project when nothing changed, so set() is a no-op then.
+      onMove: (id, pos) => store.set(moveItem(store.get(), id, pos, ui.gridStep)),
+    }, scene)
+  : null;
 
 // ---------- persistence ----------
 
@@ -217,7 +239,8 @@ function isTextInput(target: EventTarget | null): boolean {
 window.addEventListener('keydown', (e) => {
   if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || isTextInput(e.target)) return;
   if (e.key === 'Escape') {
-    select(null);
+    // The first Escape only stops a drag in progress; the next one clears the selection.
+    if (!drag?.cancel()) select(null);
     return;
   }
   const id = ui.selectedId;
@@ -225,6 +248,8 @@ window.addEventListener('keydown', (e) => {
   // `code`, not `key`: R must work on any keyboard layout (e.g. «К» on the Russian one).
   if (e.code === 'KeyR') {
     e.preventDefault();
+    // A held key auto-repeats: one press is one quarter turn.
+    if (e.repeat) return;
     store.set(rotateItem(store.get(), id, e.shiftKey ? -90 : 90));
   } else if (e.key === 'Delete' || e.key === 'Backspace') {
     e.preventDefault();
