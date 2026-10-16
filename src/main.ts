@@ -72,7 +72,8 @@ const furniture = new FurnitureLayer(viewer.scene);
 
 // ---------- panels ----------
 
-const panel = mountPropertiesPanel(requireElement('properties'), {
+const propertiesEl = requireElement('properties');
+const panel = mountPropertiesPanel(propertiesEl, {
   getProject: () => store.get(),
   catalog,
   // Exact typed values: grid snapping applies to dragging only.
@@ -100,8 +101,20 @@ function refresh(): void {
   panel.render(ui.selectedId, (ui.selectedId !== null && issues.get(ui.selectedId)) || []);
 }
 
+/**
+ * Applies an edit still being typed in the panel. A click on another item selects it on
+ * pointerdown, before the browser blurs the field; without this the re-render would overwrite
+ * the typed value and the later `change` would be lost or hit the new selection.
+ * Blurring fires `change` synchronously, while the old item is still selected.
+ */
+function commitPendingEdit(): void {
+  const active = document.activeElement;
+  if (active instanceof HTMLInputElement && propertiesEl.contains(active)) active.blur();
+}
+
 function select(id: string | null): void {
   if (id === ui.selectedId) return;
+  commitPendingEdit();
   ui.selectedId = id;
   refresh();
 }
