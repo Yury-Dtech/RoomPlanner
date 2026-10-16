@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "name": "Моя комната",
+  "room": {
+    "width": 4200,
+    "length": 5000,
+    "height": 2700,
+    "wallThickness": 100,
+    "floorMaterial": { "color": "#b08a5b" },
+    "wallMaterial": { "color": "#f2efe9" }
+  },
+  "openings": [
+    {
+      "id": "door-1",
+      "type": "door",
+      "wall": "south",
+      "offset": 800,
+      "width": 900,
+      "height": 2100,
+      "sill": 0
+    },
+    {
+      "id": "window-1",
+      "type": "window",
+      "wall": "north",
+      "offset": 1200,
+      "width": 1500,
+      "height": 1400,
+      "sill": 900
+    }
+  ],
+  "sockets": [
+    { "id": "sock-1", "wall": "east", "offset": 1000, "height": 300 }
+  ],
+  "furniture": [
+    {
+      "id": "wardrobe-1",
+      "catalogId": "wardrobe-basic",
+      "position": { "x": 450, "z": 250 },
+      "rotationY": 0,
+      "size": { "w": 900, "h": 2100, "d": 500 },
+      "color": "#ffffff"
+    },
+    {
+      "id": "bed-1",
+      "catalogId": "bed-double",
+      "position": { "x": 3200, "z": 2500 },
+      "rotationY": 90,
+      "size": { "w": 1600, "h": 450, "d": 2000 },
+      "color": "#d9cbb3"
+    },
+    {
+      "id": "desk-1",
+      "catalogId": "desk-basic",
+      "position": { "x": 1950, "z": 4700 },
+      "rotationY": 0,
+      "size": { "w": 1200, "h": 750, "d": 600 },
+      "color": "#8b6b4a"
+    }
+  ],
+  "estimate": [
+    {
+      "id": "est-1",
+      "category": "Материалы",
+      "name": "Ламинат",
+      "unit": "м²",
+      "quantity": 21,
+      "unitPrice": 0,
+      "note": ""
+    }
+  ]
+}

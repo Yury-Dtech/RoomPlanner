@@ -1,0 +1,29 @@
+[
+  {
+    "id": "wardrobe-basic",
+    "name": "Шкаф базовый",
+    "category": "Хранение",
+    "model": "",
+    "defaultSize": { "w": 900, "h": 2100, "d": 500 },
+    "source": "box placeholder",
+    "license": "CC0"
+  },
+  {
+    "id": "bed-double",
+    "name": "Кровать двуспальная",
+    "category": "Спальня",
+    "model": "",
+    "defaultSize": { "w": 1600, "h": 450, "d": 2000 },
+    "source": "box placeholder",
+    "license": "CC0"
+  },
+  {
+    "id": "desk-basic",
+    "name": "Стол письменный",
+    "category": "Рабочее место",
+    "model": "",
+    "defaultSize": { "w": 1200, "h": 750, "d": 600 },
+    "source": "box placeholder",
+    "license": "CC0"
+  }
+]
