@@ -2,6 +2,8 @@ import './style.css';
 import * as THREE from 'three';
 import sampleProject from './data/project.json';
 import type { Project, Room } from './data/schema';
+import { findIssues } from './scene/collisions';
+import { FurnitureLayer } from './scene/furniture';
 import { buildRoom, disposeObject } from './scene/room';
 import { Viewer } from './scene/viewer';
 import { ProjectStore } from './state/store';
@@ -38,7 +40,17 @@ const showCeiling = false;
 let roomGroup = buildRoom(project.room, project.openings, { showCeiling });
 viewer.scene.add(roomGroup);
 
+const furniture = new FurnitureLayer(viewer.scene);
+// Selection is changed by clicking in the scene (Task 9); re-sync after every change.
+let selectedId: string | null = null;
+function syncFurniture(p: Project): void {
+  furniture.sync(p.furniture, findIssues(p), selectedId);
+}
+syncFurniture(project);
+
 store.subscribe((p, prev) => {
+  // Issues depend on the room and openings too, so furniture re-syncs on every change.
+  syncFurniture(p);
   if (p.room === prev.room && p.openings === prev.openings) return;
   viewer.scene.remove(roomGroup);
   disposeObject(roomGroup);
