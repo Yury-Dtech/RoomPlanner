@@ -89,8 +89,9 @@ export function buildRoom(room: Room, openings: Opening[], opts: { showCeiling: 
   }
 
   if (opts.showCeiling) {
-    // Normal faces up; BackSide renders it only from below, so a top-down view sees through it.
-    const ceilingMat = new THREE.MeshStandardMaterial({ color: room.wallMaterial.color, side: THREE.BackSide });
+    // Double-sided: it closes the room in the outside and top views and is seen from inside too.
+    // Like the walls, it hides (and blocks picking of) whatever is under it.
+    const ceilingMat = new THREE.MeshStandardMaterial({ color: room.wallMaterial.color, side: THREE.DoubleSide });
     const ceiling = interiorPlane(room, room.height, ceilingMat);
     ceiling.name = 'room-ceiling';
     group.add(ceiling);

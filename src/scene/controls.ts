@@ -9,9 +9,10 @@ export type ViewMode = 'perspective' | 'top';
 const FOV_DEG = 50;
 /** Just above the horizon: the camera never dips under the floor. */
 const MAX_POLAR_ANGLE = Math.PI / 2 - 0.05;
-/** From the room centre towards the perspective camera: south (+Z), a bit east, ~50° above
- * the floor — high enough for the near walls not to hide the interior. */
-const PERSPECTIVE_DIRECTION = new THREE.Vector3(0.4, 1.3, 1).normalize();
+/** From the room centre towards the perspective camera: south (+Z), a bit east, ~64° above
+ * the floor — steep enough for an item against the near wall (the sample wardrobe) to show
+ * most of its top above the wall, so it can be grabbed (walls block picking). */
+const PERSPECTIVE_DIRECTION = new THREE.Vector3(0.4, 2.2, 1).normalize();
 /** Free space around the room in the top view (1.1 = 10 % extra). */
 const TOP_FIT_MARGIN = 1.1;
 /** The top camera is orthographic: its height only has to clear the walls. */
@@ -39,6 +40,15 @@ export function perspectiveFitDistance(radius: number, fovDeg: number, aspect: n
   const halfV = degToRad(fovDeg) / 2;
   const halfH = Math.atan(Math.tan(halfV) * aspect);
   return radius / Math.sin(Math.min(halfV, halfH));
+}
+
+/** Default perspective camera position (world m): frames the whole room, walls included. */
+export function defaultPerspectivePosition(room: Room, aspect: number): THREE.Vector3 {
+  const e = roomExtents(room);
+  // The orbit target is the floor centre, so the sphere must reach the top of the walls.
+  const radius = Math.hypot(e.width / 2, e.length / 2, e.height);
+  const distance = perspectiveFitDistance(radius, FOV_DEG, aspect);
+  return new THREE.Vector3(e.center.x, 0, e.center.z).addScaledVector(PERSPECTIVE_DIRECTION, distance);
 }
 
 /** Symmetric orthographic frustum with the screen's aspect that contains a `width × height` rectangle. */
@@ -116,10 +126,7 @@ export class ViewControls {
     const e = roomExtents(room);
     const center = new THREE.Vector3(e.center.x, 0, e.center.z);
 
-    // The orbit target is the floor centre, so the sphere must reach the top of the walls.
-    const radius = Math.hypot(e.width / 2, e.length / 2, e.height);
-    const distance = perspectiveFitDistance(radius, FOV_DEG, this.aspect);
-    this.perspective.position.copy(center).addScaledVector(PERSPECTIVE_DIRECTION, distance);
+    this.perspective.position.copy(defaultPerspectivePosition(room, this.aspect));
     this.perspective.lookAt(center);
     this.targets.perspective.copy(center);
 

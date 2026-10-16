@@ -81,10 +81,17 @@ describe('buildRoom', () => {
     expect(box.max.y).toBeCloseTo(2.3);
   });
 
-  test('ceiling is optional and back-sided', () => {
-    const ceiling = buildRoom(room, openings, { showCeiling: true }).getObjectByName('room-ceiling') as THREE.Mesh;
+  test('ceiling is optional and visible from above as well as from inside', () => {
+    const group = buildRoom(room, openings, { showCeiling: true });
+    group.updateMatrixWorld();
+    const ceiling = group.getObjectByName('room-ceiling') as THREE.Mesh;
     expect(ceiling.position.y).toBeCloseTo(2.7);
-    expect((ceiling.material as THREE.Material).side).toBe(THREE.BackSide);
+    // Raycasting honours material.side the same way rendering does.
+    // Off the plane's diagonal, so the ray crosses exactly one of its two triangles.
+    const fromAbove = new THREE.Raycaster(new THREE.Vector3(1, 10, -1.5), new THREE.Vector3(0, -1, 0));
+    const fromInside = new THREE.Raycaster(new THREE.Vector3(1, 1, -1.5), new THREE.Vector3(0, 1, 0));
+    expect(fromAbove.intersectObject(ceiling)).toHaveLength(1);
+    expect(fromInside.intersectObject(ceiling)).toHaveLength(1);
   });
 });
 
