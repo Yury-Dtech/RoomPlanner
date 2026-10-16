@@ -32,6 +32,8 @@ export function moveItem(p: Project, id: string, pos: Vec2, step: number): Proje
   if (!Number.isFinite(pos.x) || !Number.isFinite(pos.z)) return p;
   const x = snap(pos.x, step);
   const z = snap(pos.z, step);
+  // Snapping itself can overflow (a denormal step): the same guard applies to its result.
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return p;
   // Dragging calls this on every pointer move; sub-step jitter must not notify the store.
   const current = p.furniture.find((f) => f.id === id)?.position;
   if (current && current.x === x && current.z === z) return p;

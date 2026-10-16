@@ -18,11 +18,21 @@ export function parseNumberField(text: string): FieldResult {
   return { ok: true, value };
 }
 
-/** Grid step in mm: a finite number ≥ 0, where 0 turns snapping off. */
+/** Smallest and largest non-zero grid step, mm. */
+export const MIN_GRID_STEP = 1;
+export const MAX_GRID_STEP = 10000;
+
+/**
+ * Grid step in mm: 0 turns snapping off, otherwise MIN_GRID_STEP…MAX_GRID_STEP. A tiny step
+ * (e.g. 1e-320) would make snapping overflow to Infinity.
+ */
 export function parseGridStep(text: string): FieldResult {
   const r = parseNumberField(text);
   if (!r.ok) return r;
   if (r.value < 0) return { ok: false, error: 'Шаг не может быть отрицательным' };
+  if (r.value !== 0 && (r.value < MIN_GRID_STEP || r.value > MAX_GRID_STEP)) {
+    return { ok: false, error: `Шаг: 0 (без привязки) или от ${MIN_GRID_STEP} до ${MAX_GRID_STEP} мм` };
+  }
   return { ok: true, value: r.value + 0 };
 }
 

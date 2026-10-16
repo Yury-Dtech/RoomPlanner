@@ -64,6 +64,12 @@ describe('moveItem', () => {
     }
   });
 
+  test('a step that makes the snapped position non-finite returns the same project', () => {
+    // 4000 / 1e-320 overflows to Infinity; saving it would write null and break the project.
+    expect(moveItem(base, 'desk-1', { x: 4000, z: 100 }, 1e-320)).toBe(base);
+    expect(moveItem(base, 'desk-1', { x: 100, z: 4000 }, 1e-320)).toBe(base);
+  });
+
   test('unknown id returns the same project', () => {
     expect(moveItem(base, 'nope', { x: 0, z: 0 }, 50)).toBe(base);
   });

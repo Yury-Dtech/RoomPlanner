@@ -23,10 +23,17 @@ describe('parseNumberField', () => {
 });
 
 describe('parseGridStep', () => {
-  test('accepts zero (no snapping) and positive values', () => {
-    expect(parseGridStep('0')).toEqual({ ok: true, value: 0 });
-    expect(parseGridStep('50')).toEqual({ ok: true, value: 50 });
-    expect(parseGridStep('12.5')).toEqual({ ok: true, value: 12.5 });
+  test('accepts zero (no snapping) and steps from 1 to 10000 mm', () => {
+    for (const [text, value] of [['0', 0], ['1', 1], ['12.5', 12.5], ['50', 50], ['10000', 10000]] as const) {
+      expect(parseGridStep(text), text).toEqual({ ok: true, value });
+    }
+  });
+
+  test('rejects steps between 0 and 1 mm and above 10000 mm', () => {
+    // A denormal step makes snap() return Infinity, which would corrupt the saved project.
+    for (const text of ['0.5', '1e-320', '10001']) {
+      expect(parseGridStep(text), text).toEqual({ ok: false, error: 'Шаг: 0 (без привязки) или от 1 до 10000 мм' });
+    }
   });
 
   test('rejects empty, non-finite and negative values', () => {

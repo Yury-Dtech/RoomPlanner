@@ -1,6 +1,6 @@
 import type { CatalogEntry } from '../data/schema';
 import type { ViewMode } from '../scene/controls';
-import { parseGridStep, setFieldError } from './inputs';
+import { MAX_GRID_STEP, parseGridStep, setFieldError } from './inputs';
 
 /** UI-only state; lives in main.ts and is never saved with the project. */
 export interface UiState {
@@ -78,6 +78,7 @@ export function mountToolbar(el: HTMLElement, deps: ToolbarDeps): void {
   const step = document.createElement('input');
   step.type = 'number';
   step.min = '0';
+  step.max = String(MAX_GRID_STEP);
   step.step = '10';
   step.value = String(ui.gridStep);
   step.className = 'tb-step';
